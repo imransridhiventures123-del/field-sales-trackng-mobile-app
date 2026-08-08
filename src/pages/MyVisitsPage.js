@@ -3,10 +3,10 @@
 // with borderBottom so they stick at top. Content ScrollView has flex:1
 // so it fills remaining space and scrolls independently of the tabs.
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons }      from "@expo/vector-icons";
 import ShopVisitCard from "../components/ShopVisitCard";
 import { getMyVisits } from "../api/visitApi";
@@ -31,13 +31,20 @@ export default function MyVisitsPage() {
   const [loading, setLoading] = useState(true);
   const [todayFollowups, setTodayFollowups] = useState([]);
 
-  useEffect(() => {
-    getMyVisits().then((d) => {
-      const data = d.visits || [];
-      setVisits(data);
-      setTodayFollowups(data.filter(isTodayFollowup));
-    }).catch(console.error).finally(() => setLoading(false));
-  }, []);
+  // TASK 2 FIX: useFocusEffect — reloads data every time tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      getMyVisits()
+        .then((d) => {
+          const data = d.visits || [];
+          setVisits(data);
+          setTodayFollowups(data.filter(isTodayFollowup));
+        })
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    }, [])
+  );
 
   const filtered = visits.filter((v) => {
     if (tab === "All") return true;

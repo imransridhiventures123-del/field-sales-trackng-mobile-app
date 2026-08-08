@@ -3,12 +3,12 @@
 // Pehle sirf cached user.salary use hoti thi — admin ne salary badhaya toh
 // employee ko app restart karna padta tha. Ab mount pe auto-update hota hai.
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
    ActivityIndicator, RefreshControl, TextInput,
 } from "react-native";
-import { useNavigation }   from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage        from "@react-native-async-storage/async-storage";
 import { Ionicons }        from "@expo/vector-icons";
@@ -73,7 +73,12 @@ export default function PerformanceLedger() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  // TASK 2 FIX: useFocusEffect — salary and entries reload on every screen focus
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
   useEffect(() => { AsyncStorage.setItem("pl_products", JSON.stringify(products)); }, [products]);
 
   const totalCollection = entries.filter(e=>e.type==="collection").reduce((s,e)=>s+e.amount,0);

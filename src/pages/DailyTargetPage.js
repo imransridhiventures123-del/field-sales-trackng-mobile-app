@@ -1,8 +1,8 @@
 // FILE: src/pages/DailyTargetPage.js — React Native Expo version
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet,  ActivityIndicator } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { getMyStats, getTodayVisits } from "../api/visitApi";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -14,15 +14,22 @@ export default function DailyTargetPage() {
   const [rejected, setRejected]   = useState(0);
   const [loading, setLoading]     = useState(true);
 
-  useEffect(() => {
-    Promise.all([getMyStats(), getTodayVisits()]).then(([stats, today]) => {
-      const v = today.visits || [];
-      setTarget(stats.dailyTarget || 20);
-      setCompleted(v.filter(x => x.status === "Completed").length);
-      setPending(v.filter(x => x.status === "Pending").length);
-      setRejected(v.filter(x => x.status === "Rejected").length);
-    }).catch(e => console.error(e)).finally(() => setLoading(false));
-  }, []);
+  // TASK 2 FIX: useFocusEffect so data reloads on every tab/screen focus
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      Promise.all([getMyStats(), getTodayVisits()])
+        .then(([stats, today]) => {
+          const v = today.visits || [];
+          setTarget(stats.dailyTarget || 20);
+          setCompleted(v.filter(x => x.status === "Completed").length);
+          setPending(v.filter(x => x.status === "Pending").length);
+          setRejected(v.filter(x => x.status === "Rejected").length);
+        })
+        .catch(e => console.error(e))
+        .finally(() => setLoading(false));
+    }, [])
+  );
 
   const pct       = target > 0 ? Math.round((completed / target) * 100) : 0;
   const remaining = Math.max(target - completed, 0);

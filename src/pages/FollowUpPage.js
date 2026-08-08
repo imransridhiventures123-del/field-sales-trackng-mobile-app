@@ -1,9 +1,9 @@
 // FILE: src/pages/FollowUpPage.js — React Native Expo version
 // Linking.openURL for phone calls, same filter logic as PWA
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet,  Modal, ActivityIndicator, Linking } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons }      from "@expo/vector-icons";
 import { getMyFollowUps, rescheduleFollowUp, markFollowUpDone } from "../api/visitApi";
 
@@ -32,9 +32,16 @@ export default function FollowUpPage() {
   const [doneModal, setDoneModal]     = useState(null);
   const [toast, setToast]             = useState("");
 
-  useEffect(() => {
-    getMyFollowUps().then(v => setFollowups(v.map(mapVisit))).catch(e => console.error(e)).finally(() => setLoading(false));
-  }, []);
+  // TASK 2 FIX: useFocusEffect — data reloads every time screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      getMyFollowUps()
+        .then(v => setFollowups(v.map(mapVisit)))
+        .catch(e => console.error(e))
+        .finally(() => setLoading(false));
+    }, [])
+  );
 
   const active   = followups.filter(f => !f.outcome);
   const overdue  = active.filter(f => daysDiff(f.followUpDate) < 0);

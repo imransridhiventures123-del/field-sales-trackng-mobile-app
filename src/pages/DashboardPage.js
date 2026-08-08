@@ -2,9 +2,9 @@
 // Google Maps not embedded here (admin-only feature) — dashboard shows stats + online toggle
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image,  Modal, ActivityIndicator } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { useLocation } from "../context/LocationContext";
 import ShopVisitCard from "../components/ShopVisitCard";
@@ -53,23 +53,33 @@ export default function DashboardPage() {
     (v) => v.followUp?.needed && v.followUp?.date === new Date().toISOString().split("T")[0]
   );
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [s, v] = await Promise.all([
-          axiosInstance.get("/api/visits/stats"),
-          axiosInstance.get("/api/visits/my?limit=3"),
-        ]);
-        setStats(s.data);
-        setRecent(v.data.visits || []);
-      } catch (err) {
-        console.error("Dashboard fetch:", err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  // TASK 2 FIX: replaced useEffect([], ...) with useFocusEffect.
+  // Root cause: tab navigator keeps screens mounted — useEffect([]) only
+  // runs once on mount, so switching tabs shows stale/blank data.
+  // useFocusEffect runs every time this screen gains focus (tab tap, back nav).
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const fetchData = async () => {
+        setLoading(true);
+        try {
+          const [s, v] = await Promise.all([
+            axiosInstance.get("/api/visits/stats"),
+            axiosInstance.get("/api/visits/my?limit=3"),
+          ]);
+          if (!active) return;
+          setStats(s.data);
+          setRecent(v.data.visits || []);
+        } catch (err) {
+          console.error("Dashboard fetch:", err.message);
+        } finally {
+          if (active) setLoading(false);
+        }
+      };
+      fetchData();
+      return () => { active = false; }; // cleanup on blur
+    }, [])
+  );
 
   const handleToggle = () => isOnline ? setShowModal(true) : startTracking();
 

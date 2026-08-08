@@ -16,6 +16,7 @@ import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import axiosInstance from "../api/axiosInstance";
+import InvoiceTypeModal from "../components/InvoiceTypeModal";
 
 // ── Haversine distance (km) ─────────────────────────────────
 function dist(lat1, lon1, lat2, lon2) {
@@ -47,6 +48,7 @@ export default function DriverDashboardPage() {
   const [activeTab,  setActiveTab]  = useState("delivery"); // "delivery" | "porter"
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [invoiceFor, setInvoiceFor] = useState(null); // delivery for which the invoice popup is open
 
   // Location state
   const [isOnline,    setIsOnline]    = useState(false);
@@ -224,7 +226,7 @@ export default function DriverDashboardPage() {
                 </View>
               )}
               <View style={[s.tag,{backgroundColor:ss.bg}]}>
-                <Text style={[s.tagTxt,{color:ss.text}]}>{d.status.charAt(0).toUpperCase()+d.status.slice(1)}</Text>
+                <Text style={[s.tagTxt,{color:ss.text}]}>{d.status==="completed" ? "✅ Completed" : d.status.charAt(0).toUpperCase()+d.status.slice(1)}</Text>
               </View>
             </View>
 
@@ -270,6 +272,16 @@ export default function DriverDashboardPage() {
             <TouchableOpacity style={s.doneBtn}
               onPress={() => navigation.navigate("DeliveryDetail", { delivery: d })}>
               <Text style={s.doneTxt}>Mark Done →</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Completed — show Download Invoice button (delivery + porter tabs) */}
+        {d.status === "completed" && (
+          <View style={s.actRow}>
+            <TouchableOpacity style={s.invoiceBtn} onPress={() => setInvoiceFor(d)}>
+              <Ionicons name="download-outline" size={13} color="#fff" />
+              <Text style={s.invoiceTxt}>Download Invoice</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -359,6 +371,12 @@ export default function DriverDashboardPage() {
          ) : displayList.map((d, i) => renderCard(d, i, activeTab==="porter"))
         }
       </ScrollView>
+
+      <InvoiceTypeModal
+        visible={!!invoiceFor}
+        delivery={invoiceFor}
+        onClose={() => setInvoiceFor(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -408,4 +426,6 @@ const s = StyleSheet.create({
   porterTxt:    { color:"#7c3aed", fontSize:12, fontWeight:"600" },
   doneBtn:      { flex:1, alignItems:"center", paddingVertical:8, borderRadius:10, backgroundColor:"#1d4ed8" },
   doneTxt:      { color:"#fff", fontSize:13, fontWeight:"700" },
+  invoiceBtn:   { flex:1, flexDirection:"row", alignItems:"center", justifyContent:"center", gap:6, paddingVertical:9, borderRadius:10, backgroundColor:"#16a34a" },
+  invoiceTxt:   { color:"#fff", fontSize:13, fontWeight:"700" },
 });
