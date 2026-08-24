@@ -21,14 +21,23 @@ export default function DeliveryDetailPage() {
   const { delivery, onUpdate } = route.params;
 
   const [paymentType, setPaymentType] = useState("cash");
-  const [received,    setReceived]    = useState(String(delivery.totalAmount));
+  // FIX (GST not reflected for driver): totalAmount from the API is the
+  // PRE-GST bill by design (admin's invoice applies GST separately at
+  // download time). But this screen used that raw pre-GST number as the
+  // driver's "Bill" AND as the cap/target for amount collected — so when
+  // the admin had GST turned on, the driver's default/expected collection
+  // amount, the "Bill" chip, and the pending-amount auto-calc were all
+  // short by the GST amount. totalBill now adds gstAmount back in
+  // whenever gstEnabled is true, for this screen's display/validation
+  // only — doesn't change how totalAmount is stored or invoiced.
+  const totalBill = Math.round(((Number(delivery.totalAmount)||0) + (delivery.gstEnabled ? (Number(delivery.gstAmount)||0) : 0) + Number.EPSILON) * 100) / 100;
+  const [received,    setReceived]    = useState(String(totalBill));
   const [pending,     setPending]     = useState("0");
   const [notes,       setNotes]       = useState("");
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState("");
 
   // Auto-calculate pending when received changes
-  const totalBill = delivery.totalAmount;
   const autoCalcPending = () => {
     const rec = parseFloat(received) || 0;
     setPending(String(Math.max(0, totalBill - rec)));
@@ -103,7 +112,7 @@ export default function DeliveryDetailPage() {
           <Text style={s.shopAddr}>📍 {delivery.address}</Text>
           <View style={s.deliveryInfo}>
             <View style={s.infoChip}><Text style={s.infoChipText}>{delivery.quantity} kg {delivery.productName||"Batter"}</Text></View>
-            <View style={[s.infoChip, { backgroundColor:"#1d4ed8" }]}><Text style={[s.infoChipText, { color:"#fff" }]}>Bill: ₹{Number(delivery.totalAmount).toLocaleString("en-IN")}</Text></View>
+            <View style={[s.infoChip, { backgroundColor:"#1d4ed8" }]}><Text style={[s.infoChipText, { color:"#fff" }]}>Bill: ₹{totalBill.toLocaleString("en-IN")}</Text></View>
           </View>
           <View style={s.directionRow}>
             <TouchableOpacity style={s.mapsBtn} onPress={() => {
@@ -232,4 +241,4 @@ const s = StyleSheet.create({
   footer:       { padding:16,backgroundColor:"#fff",borderTopWidth:1,borderTopColor:"#f3f4f6" },
   submitBtn:    { backgroundColor:"#1d4ed8",borderRadius:14,paddingVertical:16,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:8,shadowColor:"#1d4ed8",shadowOpacity:0.3,shadowRadius:8,elevation:4 },
   submitBtnText:{ color:"#fff",fontSize:16,fontWeight:"700" },
-});
+}); 

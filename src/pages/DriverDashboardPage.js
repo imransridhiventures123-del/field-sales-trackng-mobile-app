@@ -8,7 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  RefreshControl, Linking, Alert, Switch,
+  RefreshControl, Linking, Alert, Switch, AppState,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -29,6 +29,20 @@ function dist(lat1, lon1, lat2, lon2) {
 function fmtDist(km) {
   if (km > 99990) return "";
   return km < 1 ? `${Math.round(km*1000)}m` : `${km.toFixed(1)}km`;
+}
+
+// FIX (GST not shown on driver's card): totalAmount from the API is
+// intentionally the PRE-GST bill (invoices apply GST separately at
+// download time on the admin side — see driverController's
+// computeDeliveryPricing comment). But the driver's card was showing that
+// raw pre-GST number even when the admin had GST turned ON for this
+// delivery, so it never matched what the admin confirmed at assign time.
+// This adds gstAmount back in for display only, when gstEnabled is true —
+// doesn't touch how totalAmount itself is calculated or stored.
+function cardTotal(d) {
+  const base = Number(d?.totalAmount) || 0;
+  const gst  = d?.gstEnabled ? (Number(d?.gstAmount) || 0) : 0;
+  return Math.round((base + gst + Number.EPSILON) * 100) / 100;
 }
 
 const STATUS_STYLE = {
@@ -100,6 +114,26 @@ export default function DriverDashboardPage() {
     locationSubRef.current?.remove?.();
     clearTimeout(sortTimerRef.current);
   }, []);
+
+  // FIX ("changes only show after refresh"): this screen only refetched
+  // on navigation focus (useFocusEffect above) — so if the driver just
+  // sits on this screen (the normal case — they don't leave and come
+  // back), a delivery the admin adds/edits never appears until they
+  // background the app and reopen it. Polling every 5s while the app is
+  // in the foreground means a newly-assigned delivery (with its correct
+  // GST-inclusive amount) shows up on its own, no manual refresh needed.
+  // Mirrors the same pattern already used elsewhere in this app for the
+  // same reason.
+  useEffect(() => {
+    const poll = () => {
+      if (AppState.currentState === "active") fetchData();
+    };
+    const id = setInterval(poll, 5000);
+    const sub = AppState.addEventListener("change", state => {
+      if (state === "active") fetchData();
+    });
+    return () => { clearInterval(id); sub.remove(); };
+  }, [fetchData]);
 
   // ── Start live location sharing ──────────────────────────
   const startLocation = async () => {
@@ -218,7 +252,7 @@ export default function DriverDashboardPage() {
                 <Text style={[s.tagTxt,{color:"#1d4ed8"}]}>{d.quantity} kg</Text>
               </View>
               <View style={[s.tag,{backgroundColor:"#f3f4f6"}]}>
-                <Text style={[s.tagTxt,{color:"#374151"}]}>₹{Number(d.totalAmount).toLocaleString("en-IN")}</Text>
+                <Text style={[s.tagTxt,{color:"#374151"}]}>₹{cardTotal(d).toLocaleString("en-IN")}</Text>
               </View>
               {km !== null && km < 99990 && d.status === "pending" && (
                 <View style={[s.tag,{backgroundColor:"#f0fdf4"}]}>
